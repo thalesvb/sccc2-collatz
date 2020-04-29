@@ -1,0 +1,7 @@
+{
+    "scripts": {
+        "docs": "jsdoc . -c jsdoc.conf.json",
+        "start": "node index.js"
+    },
+    "type": "module"
+}
