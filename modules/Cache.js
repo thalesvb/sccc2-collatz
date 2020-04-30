@@ -12,7 +12,7 @@ export class CacheTermsCount {
      */
     constructor(iSize) {
         let iCacheSize = (iSize ? iSize : 0);
-        this.cache = new Array(iCacheSize+1); // {}
+        this.cache = new Array(iCacheSize + 1); // {}
         this.cache[1] = 1;
     }
     /**
@@ -30,5 +30,25 @@ export class CacheTermsCount {
      */
     set(iValue, iStepsCount) {
         this.cache[iValue] = iStepsCount;
+    }
+}
+
+export class AsyncCache {
+    constructor(sharedArrayBuffer) {
+        this.cache = new Int32Array(sharedArrayBuffer);
+        this.cache[1] = 1;
+    }
+    get(iValue) {
+        let iTermsCount = Atomics.load(this.cache, iValue);//this.cache[iValue];
+        if (!iTermsCount) {
+            Atomics.wait(this.cache, iValue, 0);
+            iTermsCount = Atomics.load(this.cache, iValue);//this.cache[iValue];
+        }
+        return iTermsCount;
+    }
+    set(iValue, iTermsCount) {
+        //this.cache[iValue] = iTermsCount;
+        Atomics.store(this.cache,iValue,iTermsCount);
+        Atomics.notify(this.cache, iValue);
     }
 }
