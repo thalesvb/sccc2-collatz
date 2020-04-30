@@ -108,6 +108,12 @@ export class CollatzConjecture {
 
     /**
      * Runs asynchronous determination with work process.
+     * Builds up a queue for each worker distributing terms to each one of them.
+     * The queue for 2 workers would be: 
+     * | Worker \ Queue pos. | 1 | 2 | 3 | ... |
+     * | ---                 | - | - | - | -   |
+     * | 1                   | 2 | 4 | 6 | ... |
+     * | 2                   | 3 | 5 | 7 | ... |
      * @see determineLongestChain
      * @private
      * @param {number} iCeilingtoInvestigation
@@ -118,31 +124,27 @@ export class CollatzConjecture {
         let mLongestDetails = this._buildChainDetailsType();
         let aSharedBuffer = new SharedArrayBuffer((iCeilingtoInvestigation + 1) * Int32Array.BYTES_PER_ELEMENT);
         let aWorkerPool = Array.from({ length: iWorkers }, () => new Worker('./collatz_worker.js'));
-        let aFutex = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
         let resultResolve;
-        Atomics.store(aFutex, 0, 1);
         aWorkerPool.forEach(worker => {
             worker.postMessage({init:true, buffer: aSharedBuffer });
             worker.addListener('message', message => {
                 let iTotalTerms = message.totalTerms;
-                Atomics.wait(aFutex, 0, 0);
-                Atomics.store(aFutex, 0, 0);
                 if (iTotalTerms > mLongestDetails.terms) {
                     mLongestDetails.number = message.number;
                     mLongestDetails.terms = iTotalTerms;
                 }
-                Atomics.store(aFutex, 0, 1);
-                Atomics.notify(aFutex, 0, 1);
                 if (++iNumbersCalculated === iCeilingtoInvestigation) {
                     resultResolve();
                 }
             })
         });
-        var pAwaitResults = new Promise(function (resolve, reject) {
+        let pAwaitResults = new Promise(function (resolve, reject) {
             resultResolve = resolve;
+            let aWorkerQueue = Array.from({ length: iWorkers }, () => new Array());
             for (let i = 2; i <= iCeilingtoInvestigation; ++i) {
-                aWorkerPool[i % iWorkers].postMessage({ number: i });
+                aWorkerQueue[i % iWorkers].push(i);
             }
+            aWorkerPool.forEach((worker, index) => worker.postMessage({ numbersQueue: aWorkerQueue[index] }));
         });
         await pAwaitResults;
         aWorkerPool.forEach(worker => worker.terminate());

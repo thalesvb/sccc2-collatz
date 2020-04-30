@@ -1,6 +1,7 @@
 {
     "scripts": {
         "docs": "jsdoc . -c jsdoc.conf.json",
+        "debug": "node --inspect-brk index.js",
         "start": "node index.js"
     },
     "type": "module"
