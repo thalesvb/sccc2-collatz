@@ -1,5 +1,5 @@
 import { Worker } from 'worker_threads';
-import { CacheTermsCount, AsyncCache } from './Cache.js';
+import { CacheFactory } from './Cache.js';
 /**
  * Collatz Conjecture implementation.
  * You can {@link https://en.wikipedia.org/wiki/Collatz_conjecture read more about this conjecture on Wikipedia}.
@@ -7,8 +7,15 @@ import { CacheTermsCount, AsyncCache } from './Cache.js';
  * to speed up calculation.
  */
 export class CollatzConjecture {
-    constructor(sharedBuffer) {
-        this.oAsyncCache = new AsyncCache(sharedBuffer);
+    /**
+     * 
+     * @param {Object} [mOptions] - Options to create instance
+     * @param {boolean} [mOptions.async=false] - Async processing
+     * @param {SharedArrayBuffer} [mOptions.asyncBuffer] - Shared buffer for Async. Required for async processing.
+     * @param {number} [mOptions.syncSize] - Cache size (Sync processing).
+     */
+    constructor(mOptions) {
+        this.oCache = CacheFactory.create(mOptions);
     }
     /**
      * Determine chain length for a number.
@@ -26,8 +33,8 @@ export class CollatzConjecture {
             ++iPartialTerms;
             iValue = this.step(iValue);
         }
-        let iTotalTerms = iPartialTerms + this.oAsyncCache.get(iValue);
-        this.oAsyncCache.set(iNumber, iTotalTerms);
+        let iTotalTerms = iPartialTerms + this.oCache.get(iValue);
+        this.oCache.set(iNumber, iTotalTerms);
         return iTotalTerms;
     }
     /**
@@ -57,38 +64,85 @@ export class CollatzConjecture {
      * @property {number} terms - Number of terms calculated for this number.
      */
     /**
-     * a
+     * Builds LongestChainDetails typed object.
+     * @private
+     * @see LongestChainDetails
+     */
+    static _buildChainDetailsType() {
+        return {
+            number: 0,
+            terms: 0
+        };
+    }
+    /**
+     * 
      * @param {number} iCeilingtoInvestigation
      * @returns {LongestChainDetails} Details - Details of longest chain calculated.
      */
-    static async determineLongestChain(iCeilingtoInvestigation) {
+    static async determineLongestChain(iCeilingtoInvestigation, async) {
+        if (async) {
+            return this._determineLongestChainAsync(iCeilingtoInvestigation, 5);
+        } else {
+            return this._determineLongestChainSync(iCeilingtoInvestigation);
+        }
+    }
+
+    /**
+     * Run synchronous determination.
+     * @see determineLongestChain
+     * @private
+     * @param {*} iCeilingtoInvestigation 
+     */
+    static async _determineLongestChainSync(iCeilingtoInvestigation) {
+        let mLongestDetails = this._buildChainDetailsType();
+        let oCollatz = new CollatzConjecture({ syncSize: iCeilingtoInvestigation });
+        for (let i = 2; i <= iCeilingtoInvestigation; ++i) {
+            let iTotalTerms = oCollatz.calculateChainLength(i);
+            if (iTotalTerms > mLongestDetails.terms) {
+                mLongestDetails.number = i;
+                mLongestDetails.terms = iTotalTerms;
+            }
+        }
+        return mLongestDetails;
+    }
+
+    /**
+     * Runs asynchronous determination with work process.
+     * @see determineLongestChain
+     * @private
+     * @param {number} iCeilingtoInvestigation
+     * @param {number} iWorkers - Quantity of Workers to spawn.
+     */
+    static async _determineLongestChainAsync(iCeilingtoInvestigation, iWorkers) {
         let iNumbersCalculated = 1;
-        let mLongestDetails = { number: 0, terms: 0 };
-        let aSharedBuffer = new SharedArrayBuffer((iCeilingtoInvestigation+1) * Int32Array.BYTES_PER_ELEMENT);
-        let aWorkerPool = Array.from({length: 10}, ()=> new Worker('./collatz_worker.js'));
+        let mLongestDetails = this._buildChainDetailsType();
+        let aSharedBuffer = new SharedArrayBuffer((iCeilingtoInvestigation + 1) * Int32Array.BYTES_PER_ELEMENT);
+        let aWorkerPool = Array.from({ length: iWorkers }, () => new Worker('./collatz_worker.js'));
         let aFutex = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
         let resultResolve;
         Atomics.store(aFutex, 0, 1);
         aWorkerPool.forEach(worker => {
+            worker.postMessage({init:true, buffer: aSharedBuffer });
             worker.addListener('message', message => {
-            let iTotalTerms = message.totalTerms;
-            Atomics.wait(aFutex,0,0);
-            Atomics.store(aFutex,0,0);
-            if (iTotalTerms > mLongestDetails.terms) {
-                mLongestDetails.number = message.number;
-                mLongestDetails.terms = iTotalTerms;
-            }
-            Atomics.store(aFutex, 0, 1);
-            Atomics.notify(aFutex, 0, 1);
-            if (++iNumbersCalculated === iCeilingtoInvestigation) {
-                resultResolve();
-            }
-        })});
-        var pAwaitResults = new Promise(function(resolve, reject) {
+                let iTotalTerms = message.totalTerms;
+                Atomics.wait(aFutex, 0, 0);
+                Atomics.store(aFutex, 0, 0);
+                if (iTotalTerms > mLongestDetails.terms) {
+                    mLongestDetails.number = message.number;
+                    mLongestDetails.terms = iTotalTerms;
+                }
+                Atomics.store(aFutex, 0, 1);
+                Atomics.notify(aFutex, 0, 1);
+                if (++iNumbersCalculated === iCeilingtoInvestigation) {
+                    resultResolve();
+                }
+            })
+        });
+        var pAwaitResults = new Promise(function (resolve, reject) {
             resultResolve = resolve;
-        for (let i = 2; i <= iCeilingtoInvestigation; ++i) {
-            aWorkerPool[i%10].postMessage({buffer : aSharedBuffer, number : i });
-        }
+            for (let i = 2; i <= iCeilingtoInvestigation; ++i) {
+                aWorkerPool[i % iWorkers].postMessage({ number: i });
+            }
         });
         await pAwaitResults;
         aWorkerPool.forEach(worker => worker.terminate());
