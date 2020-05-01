@@ -88,6 +88,9 @@ export class CollatzConjecture {
             return this._determineLongestChainSync(iCeilingtoInvestigation);
         }
     }
+    static pickLongestChain(a, b){
+        return a.terms > b.terms ? a : b;
+    }
 
     /**
      * Run synchronous determination.
@@ -100,10 +103,7 @@ export class CollatzConjecture {
         let oCollatz = new CollatzConjecture({ syncSize: iCeilingtoInvestigation });
         for (let i = 2; i <= iCeilingtoInvestigation; ++i) {
             let mChainDetails = oCollatz.calculateChainLength(i);
-            if (mChainDetails.terms > mLongestChain.terms) {
-                mLongestChain.number = i;
-                mLongestChain.terms = mChainDetails.terms;
-            }
+            mLongestChain = this.pickLongestChain(mLongestChain, mChainDetails);
         }
         return mLongestChain;
     }
@@ -130,12 +130,7 @@ export class CollatzConjecture {
         aWorkerPool.forEach(worker => {
             worker.postMessage({ init: true, buffer: aSharedBuffer });
             worker.addListener('message', message => {
-                message.result.forEach(chainDetail => {
-                    if (chainDetail.terms > mLongestChain.terms) {
-                        mLongestChain.number = chainDetail.number;
-                        mLongestChain.terms = chainDetail.terms;
-                    }
-                });
+                mLongestChain = this.pickLongestChain(mLongestChain, message.longestChain);
                 if (++iWorkersCompleted === iWorkers) {
                     resultResolve();
                 }

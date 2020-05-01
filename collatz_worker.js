@@ -6,7 +6,7 @@ parentPort.addListener('message', message => {
     if(message.init) {
         oCollatz = new CollatzConjecture({async:true, asyncBuffer: message.buffer});
     } else {
-        let calculatedTermsPerNumber = message.numbersQueue.map(number => oCollatz.calculateChainLength(number));
-        parentPort.postMessage({result: calculatedTermsPerNumber});
+        let mLongestChain = message.numbersQueue.map(number => oCollatz.calculateChainLength(number)).reduce(CollatzConjecture.pickLongestChain);
+        parentPort.postMessage({longestChain: mLongestChain});
     }
 });
