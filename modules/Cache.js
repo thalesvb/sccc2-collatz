@@ -3,20 +3,20 @@
  */
 export class CacheFactory {
     /**
-     * 
-     * @param {Object} [mOptions]
-     * @param {boolean} [mOptions.async] - Cache for Async Processing.
-     * @param {SharedArrayBuffer} [mOptions.asyncBuffer] - Shared buffer for Async. Required for async processing.
-     * @param {number} [mOptions.syncSize] - Cache size (Sync processing).
-     * @returns {Cache} Cache object,
+     * Provides a suitable {@link Cache}.
+     * @param {Object} [options]
+     * @param {boolean} [options.async] - Cache for Async Processing.
+     * @param {SharedArrayBuffer} [options.asyncBuffer] - Shared buffer for Async. Required for Async processing.
+     * @param {number} [options.syncSize] - Cache size. Required for Sync processing.
+     * @returns {Cache} Cache object.
      */
-    static create(mOptions){
+    static create(options) {
         let iSize;
-        if(mOptions) {
-            if (mOptions.async) {
-                return new CacheAsync(mOptions.asyncBuffer);
+        if (options) {
+            if (options.async) {
+                return new CacheAsync(options.asyncBuffer);
             } else {
-                iSize = mOptions.syncSize;
+                iSize = options.syncSize;
             }
         }
         return new CacheSync(iSize);
@@ -31,24 +31,24 @@ export class CacheFactory {
  */
 export class Cache {
     /**
-     * 
-     * @param {number} iValue - Value to be decomposed
+     * Read required amount of terms to decompose a number.
+     * @param {number} number - Number to be decomposed
      * @returns {number} Required amount of terms to decompose it. 
      */
-    get(iValue) {
+    read(number) {
         throw new SyntaxError("Missing implementation");
     }
     /**
-     * Stores required amount of terms to decompose a value.
-     * @param {number} iValue - Value
-     * @param {number} iTermsCount - Number of terms to decompose it.
+     * Stores required amount of terms to decompose a number.
+     * @param {number} number - Value
+     * @param {number} termsCount - Number of terms to decompose it.
      */
-    set(iValue, iTermsCount) {
+    store(number, termsCount) {
         throw new SyntaxError("Missing implementation");
     }
 }
 /**
- * @class
+ * Synchronous cache for Synchronous Collatz.
  * @implements Cache
  */
 class CacheSync extends Cache {
@@ -62,30 +62,34 @@ class CacheSync extends Cache {
         this.cache = new Array(iCacheSize + 1); // {}
         this.cache[1] = 1;
     }
-    get(iValue) {
-        return this.cache[iValue];
+    read(number) {
+        return this.cache[number];
     }
-    set(iValue, iStepsCount) {
-        this.cache[iValue] = iStepsCount;
+    store(number, termsCount) {
+        this.cache[number] = termsCount;
     }
 }
 
+/**
+ * Asynchronous cache for Asynchronous Collatz.
+ * @implements Cache
+ */
 class CacheAsync extends Cache {
     constructor(sharedArrayBuffer) {
         super();
         this.cache = new Int32Array(sharedArrayBuffer);
         this.cache[1] = 1;
     }
-    get(iValue) {
-        let iTermsCount = Atomics.load(this.cache, iValue);
-        if (!iTermsCount) {
-            Atomics.wait(this.cache, iValue, 0);
-            iTermsCount = Atomics.load(this.cache, iValue);
+    read(number) {
+        let termsCount = Atomics.load(this.cache, number);
+        if (!termsCount) {
+            Atomics.wait(this.cache, number, 0);
+            termsCount = Atomics.load(this.cache, number);
         }
-        return iTermsCount;
+        return termsCount;
     }
-    set(iValue, iTermsCount) {
-        Atomics.store(this.cache,iValue,iTermsCount);
-        Atomics.notify(this.cache, iValue);
+    store(number, termsCount) {
+        Atomics.store(this.cache, number, termsCount);
+        Atomics.notify(this.cache, number);
     }
 }
