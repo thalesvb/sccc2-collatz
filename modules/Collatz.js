@@ -23,7 +23,7 @@ export class CollatzConjecture {
      * and stored on cache. Only need to calculate ones above iNumber and fetch computated result
      * for the first below.
      * @param {number} iNumber - Initial number of sequence.
-     * @returns {number} Nº of terms in this sequence (chain length).
+     * @returns {ChainDetail} Chain details for provided initial number.
      */
     calculateChainLength(iNumber) {
         let iPartialTerms = 0;
@@ -35,7 +35,7 @@ export class CollatzConjecture {
         }
         let iTotalTerms = iPartialTerms + this.oCache.get(iValue);
         this.oCache.set(iNumber, iTotalTerms);
-        return iTotalTerms;
+        return this.constructor._buildChainDetailsType(iNumber, iTotalTerms);
     }
     /**
      * Returns calculated value for current iteraction.
@@ -59,25 +59,27 @@ export class CollatzConjecture {
         return iValueCalculated;
     }
     /**
-     * @typedef {Object} LongestChainDetails Details from longest calculated chain.
-     * @property {number} number - Number with the longest chain in number interval.
+     * @typedef {Object} ChainDetail Details from a chain calculation.
+     * @property {number} number - Number evaluated.
      * @property {number} terms - Number of terms calculated for this number.
      */
     /**
-     * Builds LongestChainDetails typed object.
+     * Builds ChainDetail typed object.
+     * @param {number} [number]
+     * @param {number} [terms]
      * @private
-     * @see LongestChainDetails
+     * @see ChainDetail
      */
-    static _buildChainDetailsType() {
+    static _buildChainDetailsType(number, terms) {
         return {
-            number: 0,
-            terms: 0
+            number: (number ? number : 0),
+            terms: (terms ? terms : 0)
         };
     }
     /**
      * 
      * @param {number} iCeilingtoInvestigation
-     * @returns {LongestChainDetails} Details - Details of longest chain calculated.
+     * @returns {ChainDetail} Details of longest chain calculated.
      */
     static async determineLongestChain(iCeilingtoInvestigation, async) {
         if (async) {
@@ -94,16 +96,16 @@ export class CollatzConjecture {
      * @param {*} iCeilingtoInvestigation 
      */
     static async _determineLongestChainSync(iCeilingtoInvestigation) {
-        let mLongestDetails = this._buildChainDetailsType();
+        let mLongestChain = this._buildChainDetailsType();
         let oCollatz = new CollatzConjecture({ syncSize: iCeilingtoInvestigation });
         for (let i = 2; i <= iCeilingtoInvestigation; ++i) {
-            let iTotalTerms = oCollatz.calculateChainLength(i);
-            if (iTotalTerms > mLongestDetails.terms) {
-                mLongestDetails.number = i;
-                mLongestDetails.terms = iTotalTerms;
+            let mChainDetails = oCollatz.calculateChainLength(i);
+            if (mChainDetails.terms > mLongestChain.terms) {
+                mLongestChain.number = i;
+                mLongestChain.terms = mChainDetails.terms;
             }
         }
-        return mLongestDetails;
+        return mLongestChain;
     }
 
     /**
@@ -120,20 +122,21 @@ export class CollatzConjecture {
      * @param {number} iWorkers - Quantity of Workers to spawn.
      */
     static async _determineLongestChainAsync(iCeilingtoInvestigation, iWorkers) {
-        let iNumbersCalculated = 1;
-        let mLongestDetails = this._buildChainDetailsType();
+        let iWorkersCompleted = 0;
+        let mLongestChain = this._buildChainDetailsType();
         let aSharedBuffer = new SharedArrayBuffer((iCeilingtoInvestigation + 1) * Int32Array.BYTES_PER_ELEMENT);
         let aWorkerPool = Array.from({ length: iWorkers }, () => new Worker('./collatz_worker.js'));
         let resultResolve;
         aWorkerPool.forEach(worker => {
-            worker.postMessage({init:true, buffer: aSharedBuffer });
+            worker.postMessage({ init: true, buffer: aSharedBuffer });
             worker.addListener('message', message => {
-                let iTotalTerms = message.totalTerms;
-                if (iTotalTerms > mLongestDetails.terms) {
-                    mLongestDetails.number = message.number;
-                    mLongestDetails.terms = iTotalTerms;
-                }
-                if (++iNumbersCalculated === iCeilingtoInvestigation) {
+                message.result.forEach(chainDetail => {
+                    if (chainDetail.terms > mLongestChain.terms) {
+                        mLongestChain.number = chainDetail.number;
+                        mLongestChain.terms = chainDetail.terms;
+                    }
+                });
+                if (++iWorkersCompleted === iWorkers) {
                     resultResolve();
                 }
             })
@@ -148,6 +151,6 @@ export class CollatzConjecture {
         });
         await pAwaitResults;
         aWorkerPool.forEach(worker => worker.terminate());
-        return mLongestDetails;
+        return mLongestChain;
     }
 }
