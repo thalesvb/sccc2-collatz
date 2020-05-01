@@ -149,3 +149,25 @@ export class CollatzConjecture {
         return mLongestChain;
     }
 }
+
+/**
+ * Worker implementation for Asynchronous Collatz.
+ * It does a simple task to find the longest chain for a bunch of numbers.
+ */
+export class CollatzWorker {
+    /**
+     * 
+     * @param {SharedArrayBuffer} sharedBuffer - Shared buffer among the Worker threads.
+     */
+    constructor(sharedBuffer) {
+        this.collatz = new CollatzConjecture({async:true, asyncBuffer: sharedBuffer});
+    }
+    /**
+     * Map-reduce task to find the longest chain among the numbers.
+     * @param {number[]} numbers - a
+     */
+    reduceToLongestChain(numbers) {
+        return numbers.map(number => this.collatz.calculateChainLength(number))
+                      .reduce(CollatzConjecture.pickLongestChain);
+    }
+}
