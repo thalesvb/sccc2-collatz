@@ -1,12 +1,29 @@
 import { Worker } from 'worker_threads';
 import { CacheFactory } from './Cache.js';
 /**
- * Collatz Conjecture implementation.
+ * Collatz Conjecture implementation factory.
+ */
+export class CollatzFactory {
+    /**
+     * @param {Object} [options] - Options to create instance.
+     * @param {boolean} [options.async=false] - Async processing.
+     * @param {number} [options.syncSize] - Cache size (Sync processing).
+     */
+    static create(options) {
+        if (options && options.async) {
+                return new CollatzAsync(options);
+        }
+        return new CollatzSync(options);
+    }
+}
+/**
+ * Base implementation for Collatz Conjecture, like determining
  * You can {@link https://en.wikipedia.org/wiki/Collatz_conjecture read more about this conjecture on Wikipedia}.
  * Relies on {@link https://en.wikipedia.org/wiki/Dynamic_programming Dynamic Programming bottom-up approach}
  * to speed up calculation.
+ * @abstract
  */
-export class CollatzConjecture {
+class CollatzConjecture {
     /**
      * @param {Object} [options] - Options to create instance.
      * @param {boolean} [options.async=false] - Async processing.
@@ -16,6 +33,17 @@ export class CollatzConjecture {
     constructor(options) {
         this.cache = CacheFactory.create(options);
     }
+    
+    /**
+     * Determine longest chain for a number interval defined by 1 < i < <code>ceilingToInvestigate</code>.
+     * @abstract
+     * @public
+     * @param {*} ceilingToInvestigate - Upper bound to be investigated.
+     */
+    async determineLongestChain(ceilingToInvestigate) {
+        throw new SyntaxError("Missing implementation");
+    }
+    
     /**
      * Determine chain length for a number.
      * DynProg bottom-up approach: all terms below current term were already calculated
@@ -57,11 +85,7 @@ export class CollatzConjecture {
         }
         return nextTerm;
     }
-    /**
-     * @typedef {Object} ChainDetail Details from a chain calculation.
-     * @property {number} number - Number evaluated.
-     * @property {number} terms - Number of terms calculated for this number.
-     */
+
     /**
      * Builds ChainDetail typed object.
      * @param {number} [number]
@@ -75,62 +99,49 @@ export class CollatzConjecture {
             terms: (terms ? terms : 0)
         };
     }
+
     /**
-     * 
-     * @param {number} ceilingToInvestigate - Maximum positive number to investigate the longest chain.
-     * @param {boolean} [async] - Run async if <code>true</code>. Otherwise runs single-threaded.
-     * @returns {ChainDetail} Details of longest chain calculated.
+     * Comparator to determine which one has longest term chain, returning it.
+     * @param {ChainDetail} a 
+     * @param {ChainDetail} b 
      */
-    static async determineLongestChain(ceilingToInvestigate, async) {
-        if (async) {
-            return this._determineLongestChainAsync(ceilingToInvestigate, 5);
-        } else {
-            return this._determineLongestChainSync(ceilingToInvestigate);
-        }
-    }
     static pickLongestChain(a, b){
         return a.terms > b.terms ? a : b;
     }
+}
 
-    /**
-     * Run synchronous determination.
-     * @see determineLongestChain
-     * @private
-     * @param {*} ceilingToInvestigate 
-     */
-    static async _determineLongestChainSync(ceilingToInvestigate) {
-        let longestChain = this._buildChainDetailsType();
-        let collatz = new CollatzConjecture({ syncSize: ceilingToInvestigate });
+class CollatzSync extends CollatzConjecture {
+    async determineLongestChain(ceilingToInvestigate) {
+        let longestChain = this.constructor._buildChainDetailsType();
         for (let i = 2; i <= ceilingToInvestigate; ++i) {
-            let chainDetails = collatz.calculateChainLength(i);
-            longestChain = this.pickLongestChain(longestChain, chainDetails);
+            let chainDetails = this.calculateChainLength(i);
+            longestChain = this.constructor.pickLongestChain(longestChain, chainDetails);
         }
         return longestChain;
     }
+}
+/**
+ * Runs asynchronous determination with work processes.
+ * Builds up a queue for each worker distributing terms to each one of them.
+ * The queue for 2 workers would be: 
+ * | Worker \ Queue pos. | 1 | 2 | 3 | ... |
+ * | ---                 | - | - | - | -   |
+ * | 1                   | 2 | 4 | 6 | ... |
+ * | 2                   | 3 | 5 | 7 | ... |
+ */
+class CollatzAsync extends CollatzConjecture {
 
-    /**
-     * Runs asynchronous determination with work process.
-     * Builds up a queue for each worker distributing terms to each one of them.
-     * The queue for 2 workers would be: 
-     * | Worker \ Queue pos. | 1 | 2 | 3 | ... |
-     * | ---                 | - | - | - | -   |
-     * | 1                   | 2 | 4 | 6 | ... |
-     * | 2                   | 3 | 5 | 7 | ... |
-     * @see determineLongestChain
-     * @private
-     * @param {number} ceilingToInvestigate
-     * @param {number} numOfWorkers - Quantity of Workers to spawn.
-     */
-    static async _determineLongestChainAsync(ceilingToInvestigate, numOfWorkers) {
+    async determineLongestChain(ceilingToInvestigate) {
+        let numOfWorkers = 5;
         let numOfWorkersCompleted = 0;
-        let longestChain = this._buildChainDetailsType();
+        let longestChain = this.constructor._buildChainDetailsType();
         let sharedBuffer = new SharedArrayBuffer((ceilingToInvestigate + 1) * Int32Array.BYTES_PER_ELEMENT);
         let workerPool = Array.from({ length: numOfWorkers }, () => new Worker('./collatz_worker.js'));
         let signalAllWorkersCompleted;
         workerPool.forEach(worker => {
             worker.postMessage({ init: true, buffer: sharedBuffer });
             worker.addListener('message', message => {
-                longestChain = this.pickLongestChain(longestChain, message.longestChain);
+                longestChain = this.constructor.pickLongestChain(longestChain, message.longestChain);
                 if (++numOfWorkersCompleted === numOfWorkers) {
                     signalAllWorkersCompleted();
                 }
