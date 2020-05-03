@@ -1,7 +1,44 @@
 /**
  * Provides a suitable cache for Collatz Conjecture processing.
+ * Builder version.
+*/
+export class CacheBuilder {
+    /**
+     * Requests a async cache.
+     */
+    async() {
+        this._async = true;
+        return this;
+    }
+    /**
+     * Provides a shared buffer to new cache object. 
+     * @param {SharedArrayBuffer} sharedBuffer 
+     */
+    sharedBuffer(sharedBuffer) {
+        this._sharedBuffer = sharedBuffer;
+        return this;
+    }
+    /**
+     * 
+     * @param {number} size
+     * @returns {Cache} Cache object.
+     */
+    build(size) {
+        if(this.async && !this.sharedBuffer) {
+            this.sharedBuffer = new SharedArrayBuffer((size + 1) * Int32Array.BYTES_PER_ELEMENT);
+        }
+        return CacheFactory.create({
+            async: this._async,
+            asyncBuffer: this._sharedBuffer,
+            syncSize: size
+        })
+    }
+}
+/**
+ * Provides a suitable cache for Collatz Conjecture processing.
+ * Factory version.
  */
-export class CacheFactory {
+class CacheFactory {
     /**
      * Provides a suitable {@link Cache}.
      * @param {Object} [options]
@@ -53,13 +90,13 @@ export class Cache {
  */
 class CacheSync extends Cache {
     /**
-     * @constructs
+     * @constructor
      * @param {number} [iSize] - Initial cache size.
      */
     constructor(iSize) {
         super();
         let iCacheSize = (iSize && iSize > 0 ? iSize : 0);
-        this.cache = new Array(iCacheSize + 1); // {}
+        this.cache = new Array(iCacheSize + 1);
         this.cache[1] = 1;
     }
     read(number) {
@@ -75,6 +112,10 @@ class CacheSync extends Cache {
  * @implements Cache
  */
 class CacheAsync extends Cache {
+    /**
+     * @constructor
+     * @param {SharedArrayBuffer} sharedArrayBuffer - Shared buffer to connect with this cache instance.
+     */
     constructor(sharedArrayBuffer) {
         super();
         this.cache = new Int32Array(sharedArrayBuffer);

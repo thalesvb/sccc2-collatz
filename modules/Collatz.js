@@ -1,5 +1,5 @@
 import { Worker } from 'worker_threads';
-import { CacheFactory } from './Cache.js';
+import { CacheBuilder } from './Cache.js';
 /**
  * Collatz Conjecture implementation factory.
  */
@@ -7,7 +7,7 @@ export class CollatzFactory {
     /**
      * @param {Object} [options] - Options to create instance.
      * @param {boolean} [options.async=false] - Async processing.
-     * @param {number} [options.syncSize] - Cache size (Sync processing).
+     * @param {CacheBuilder} [options.cache] - Pre-built cache.
      */
     static create(options) {
         if (options && options.async) {
@@ -26,12 +26,13 @@ export class CollatzFactory {
 class CollatzConjecture {
     /**
      * @param {Object} [options] - Options to create instance.
-     * @param {boolean} [options.async=false] - Async processing.
-     * @param {SharedArrayBuffer} [options.asyncBuffer] - Shared buffer for Async. Required for async processing.
-     * @param {number} [options.syncSize] - Cache size (Sync processing).
+     * @param {Cache} [options.cache] - Cache to be used by runtime.
      */
     constructor(options) {
-        this.cache = CacheFactory.create(options);
+        this.cache = null;
+        if (options && options.cache) {
+            this.cache = options.cache;
+        }
     }
     
     /**
@@ -112,6 +113,7 @@ class CollatzConjecture {
 
 class CollatzSync extends CollatzConjecture {
     async determineLongestChain(ceilingToInvestigate) {
+        this.cache = new CacheBuilder().build(ceilingToInvestigate);
         let longestChain = this.constructor._buildChainDetailsType();
         for (let i = 2; i <= ceilingToInvestigate; ++i) {
             let chainDetails = this.calculateChainLength(i);
@@ -130,7 +132,6 @@ class CollatzSync extends CollatzConjecture {
  * | 2                   | 3 | 5 | 7 | ... |
  */
 class CollatzAsync extends CollatzConjecture {
-
     async determineLongestChain(ceilingToInvestigate) {
         let numOfWorkers = 5;
         let numOfWorkersCompleted = 0;
@@ -171,7 +172,8 @@ export class CollatzWorker {
      * @param {SharedArrayBuffer} sharedBuffer - Shared buffer among the Worker threads.
      */
     constructor(sharedBuffer) {
-        this.collatz = new CollatzConjecture({async:true, asyncBuffer: sharedBuffer});
+        let cache = new CacheBuilder().async().sharedBuffer(sharedBuffer).build();
+        this.collatz = CollatzFactory.create({async:true, cache: cache});
     }
     /**
      * Map-reduce task to find the longest chain among the numbers.
