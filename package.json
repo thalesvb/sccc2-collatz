@@ -1,4 +1,7 @@
 {
+    "name": "@thalesvb/sccc.collatz",
+    "version": "0.0.1",
+    "description": "ThalesVB entry for SAP Community Coding Challenge #2 - Collatz Conjecture",
     "scripts": {
         "docs": "jsdoc . -c jsdoc.conf.json",
         "debug": "node --inspect-brk index.js",

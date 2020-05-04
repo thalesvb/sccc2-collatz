@@ -1,3 +1,8 @@
+// /**
+//  * Cache implementation.
+//  * @module Cache
+//  */
+
 /**
  * Provides a suitable cache for Collatz Conjecture processing.
  * Builder version.
@@ -11,16 +16,17 @@ export class CacheBuilder {
         return this;
     }
     /**
-     * Provides a shared buffer to new cache object. 
-     * @param {SharedArrayBuffer} sharedBuffer 
+     * Provides a shared buffer for cache object.
+     * Only relevant when builder has a {@link CacheBuilder#async async} aspect.
+     * @param {external:SharedArrayBuffer} sharedBuffer - Buffer shared across workers.
      */
     sharedBuffer(sharedBuffer) {
         this._sharedBuffer = sharedBuffer;
         return this;
     }
     /**
-     * 
-     * @param {number} size
+     * Build Cache object.
+     * @param {number} size - Number entries allocated in cache.
      * @returns {Cache} Cache object.
      */
     build(size) {
@@ -37,13 +43,14 @@ export class CacheBuilder {
 /**
  * Provides a suitable cache for Collatz Conjecture processing.
  * Factory version.
+ * @package
  */
 class CacheFactory {
     /**
      * Provides a suitable {@link Cache}.
      * @param {Object} [options]
      * @param {boolean} [options.async] - Cache for Async Processing.
-     * @param {SharedArrayBuffer} [options.asyncBuffer] - Shared buffer for Async. Required for Async processing.
+     * @param {external:SharedArrayBuffer} [options.asyncBuffer] - Shared buffer for Async. Required for Async processing.
      * @param {number} [options.syncSize] - Cache size. Required for Sync processing.
      * @returns {Cache} Cache object.
      */
@@ -68,17 +75,17 @@ class CacheFactory {
  */
 export class Cache {
     /**
-     * Read required amount of terms to decompose a number.
-     * @param {number} number - Number to be decomposed
-     * @returns {number} Required amount of terms to decompose it. 
+     * Read chain length for a number.
+     * @param {number} number - Number.
+     * @returns {number} Amount of terms in its chain. 
      */
     read(number) {
         throw new SyntaxError("Missing implementation");
     }
     /**
-     * Stores required amount of terms to decompose a number.
-     * @param {number} number - Value
-     * @param {number} termsCount - Number of terms to decompose it.
+     * Stores amount of terms in a number's chain.
+     * @param {number} number - Number.
+     * @param {number} termsCount - Amount of terms in its chain.
      */
     store(number, termsCount) {
         throw new SyntaxError("Missing implementation");
@@ -91,11 +98,11 @@ export class Cache {
 class CacheSync extends Cache {
     /**
      * @constructor
-     * @param {number} [iSize] - Initial cache size.
+     * @param {number} [size] - Initial cache size.
      */
-    constructor(iSize) {
+    constructor(size) {
         super();
-        let iCacheSize = (iSize && iSize > 0 ? iSize : 0);
+        let iCacheSize = (size && size > 0 ? size : 0);
         this.cache = new Array(iCacheSize + 1);
         this.cache[1] = 1;
     }
@@ -114,7 +121,7 @@ class CacheSync extends Cache {
 class CacheAsync extends Cache {
     /**
      * @constructor
-     * @param {SharedArrayBuffer} sharedArrayBuffer - Shared buffer to connect with this cache instance.
+     * @param {external:SharedArrayBuffer} sharedArrayBuffer - Shared buffer to connect with this cache instance.
      */
     constructor(sharedArrayBuffer) {
         super();

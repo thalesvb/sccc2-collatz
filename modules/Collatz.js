@@ -1,5 +1,19 @@
+// /**
+//  * Collatz conjecture implementation.
+//  * Provides a {@link CollatzSync Synchronous} and {@link CollatzAsync Asynchronous} variant.
+//  * @module Collatz
+//  */
+
 import { Worker } from 'worker_threads';
 import { CacheBuilder } from './Cache.js';
+
+/**
+ * @typedef {Object} ChainDetail Details from a chain calculation.
+ * @property {number} number - Number evaluated.
+ * @property {number} terms - Number of terms calculated for this number.
+ * @public
+ */
+
 /**
  * Collatz Conjecture implementation factory.
  */
@@ -7,7 +21,7 @@ export class CollatzFactory {
     /**
      * @param {Object} [options] - Options to create instance.
      * @param {boolean} [options.async=false] - Async processing.
-     * @param {CacheBuilder} [options.cache] - Pre-built cache.
+     * @param {Cache} [options.cache] - Pre-built cache.
      */
     static create(options) {
         if (options && options.async) {
@@ -39,7 +53,7 @@ class CollatzConjecture {
      * Determine longest chain for a number interval defined by 1 < i < <code>ceilingToInvestigate</code>.
      * @abstract
      * @public
-     * @param {*} ceilingToInvestigate - Upper bound to be investigated.
+     * @param {number} ceilingToInvestigate - Upper bound to be investigated.
      */
     async determineLongestChain(ceilingToInvestigate) {
         throw new SyntaxError("Missing implementation");
@@ -110,7 +124,9 @@ class CollatzConjecture {
         return a.terms > b.terms ? a : b;
     }
 }
-
+/**
+ * Runs synchronous determination in main thread.
+ */
 class CollatzSync extends CollatzConjecture {
     async determineLongestChain(ceilingToInvestigate) {
         this.cache = new CacheBuilder().build(ceilingToInvestigate);
@@ -169,7 +185,7 @@ class CollatzAsync extends CollatzConjecture {
 export class CollatzWorker {
     /**
      * 
-     * @param {SharedArrayBuffer} sharedBuffer - Shared buffer among the Worker threads.
+     * @param {external:SharedArrayBuffer} sharedBuffer - Shared buffer among the Worker threads.
      */
     constructor(sharedBuffer) {
         let cache = new CacheBuilder().async().sharedBuffer(sharedBuffer).build();
