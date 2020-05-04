@@ -5,6 +5,13 @@
         "recurse": true,
         "readme": "README.md"
     },
+    "source": {
+        "include": ["."],
+        "exclude": [
+            "docs",
+            "node_modules"
+        ]
+    },
     "plugins": [
         "plugins/markdown"
     ],

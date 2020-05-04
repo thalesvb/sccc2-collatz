@@ -3,9 +3,12 @@
     "version": "0.0.1",
     "description": "ThalesVB entry for SAP Community Coding Challenge #2 - Collatz Conjecture",
     "scripts": {
-        "docs": "jsdoc . -c jsdoc.conf.json",
+        "docs": "node_modules/.bin/jsdoc -c jsdoc.conf.json",
         "debug": "node --inspect-brk index.js",
         "start": "node index.js"
     },
-    "type": "module"
+    "type": "module",
+    "devDependencies": {
+        "jsdoc": "^3.6.4"
+    }
 }
