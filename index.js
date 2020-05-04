@@ -8,8 +8,7 @@ let collatz = CollatzFactory.create({async: runAsync});
 collatz.determineLongestChain(upperLimitToInvestigate).then(
     maximum => {
         monitor.end();
-        console.log("Sync:");
-        console.log(maximum);
+        console.log(`Number with longest chain was ${maximum.number} with ${maximum.terms} terms.`);
         monitor.display();
     }
-);
+);  

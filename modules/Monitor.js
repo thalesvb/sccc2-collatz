@@ -22,7 +22,7 @@ export class Monitor {
     display() {
         const runtimeMs = Math.floor(Number(this.endTime - this.startTime) / 1000000);
         const memoryMB = (this.endMemoryUsage.rss - this.startMemoryUsage.rss) / 1024 / 1024;
-        console.log("Runtime: " + runtimeMs + " ms");
-        console.log("Memory usage: " + memoryMB + " MB");
+        console.log(`Runtime: ${runtimeMs} ms`);
+        console.log(`Memory usage: ${memoryMB.toFixed(2)} MB`);
     }
 }
