@@ -43,7 +43,7 @@ export class CacheBuilder {
 /**
  * Provides a suitable cache for Collatz Conjecture processing.
  * Factory version.
- * @package
+ * @private
  */
 class CacheFactory {
     /**
@@ -93,15 +93,14 @@ export class Cache {
 }
 /**
  * Synchronous cache for Synchronous Collatz.
- * @implements Cache
+ * @implements {Cache}
  */
-class CacheSync extends Cache {
+class CacheSync {
     /**
      * @constructor
      * @param {number} [size] - Initial cache size.
      */
     constructor(size) {
-        super();
         let iCacheSize = (size && size > 0 ? size : 0);
         this.cache = new Array(iCacheSize + 1);
         this.cache[1] = 1;
@@ -116,15 +115,14 @@ class CacheSync extends Cache {
 
 /**
  * Asynchronous cache for Asynchronous Collatz.
- * @implements Cache
+ * @implements {Cache}
  */
-class CacheAsync extends Cache {
+class CacheAsync {
     /**
      * @constructor
      * @param {external:SharedArrayBuffer} sharedArrayBuffer - Shared buffer to connect with this cache instance.
      */
     constructor(sharedArrayBuffer) {
-        super();
         this.cache = new Int32Array(sharedArrayBuffer);
         this.cache[1] = 1;
     }

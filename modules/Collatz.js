@@ -5,6 +5,7 @@
 //  */
 
 import { Worker } from 'worker_threads';
+import R from 'ramda';
 import { CacheBuilder } from './Cache.js';
 
 /**
@@ -20,24 +21,44 @@ import { CacheBuilder } from './Cache.js';
 export class CollatzFactory {
     /**
      * @param {Object} [options] - Options to create instance.
-     * @param {boolean} [options.async=false] - Async processing.
+     * @param {string} [options.type] - Way to solve (sync/async/functional). Defaults to sync.
      * @param {Cache} [options.cache] - Pre-built cache.
      */
     static create(options) {
-        if (options && options.async) {
-                return new CollatzAsync(options);
+        if (options && options.type) {
+            switch (options.type) {
+                case "async": return new CollatzAsync(options);
+                case "functional": return new CollatzFunctional(options);
+            }
         }
         return new CollatzSync(options);
     }
 }
+
 /**
- * Base implementation for Collatz Conjecture, like determining
+ * Collatz Conjecture implementation.
  * You can {@link https://en.wikipedia.org/wiki/Collatz_conjecture read more about this conjecture on Wikipedia}.
- * Relies on {@link https://en.wikipedia.org/wiki/Dynamic_programming Dynamic Programming bottom-up approach}
- * to speed up calculation.
- * @abstract
+ * @interface
  */
 class CollatzConjecture {
+    /**
+     * Determine longest chain for a number interval defined by 1 < i < <code>ceilingToInvestigate</code>.
+     * @public
+     * @param {number} ceilingToInvestigate - Upper bound to be investigated.
+     */
+    async determineLongestChain(ceilingToInvestigate) {
+        throw new SyntaxError("Missing implementation");
+    }
+}
+
+/**
+ * Base implementation for sync/async.
+ * Relies on {@link https://en.wikipedia.org/wiki/Dynamic_programming Dynamic Programming bottom-up approach}
+ * to speed up calculation with cache.
+ * @abstract
+ * @implements {CollatzConjecture}
+ */
+class CollatzDynProg {
     /**
      * @param {Object} [options] - Options to create instance.
      * @param {Cache} [options.cache] - Cache to be used by runtime.
@@ -48,7 +69,7 @@ class CollatzConjecture {
             this.cache = options.cache;
         }
     }
-    
+
     /**
      * Determine longest chain for a number interval defined by 1 < i < <code>ceilingToInvestigate</code>.
      * @abstract
@@ -58,7 +79,7 @@ class CollatzConjecture {
     async determineLongestChain(ceilingToInvestigate) {
         throw new SyntaxError("Missing implementation");
     }
-    
+
     /**
      * Determine chain length for a number.
      * DynProg bottom-up approach: all terms below current term were already calculated
@@ -77,7 +98,7 @@ class CollatzConjecture {
         }
         let totalTerms = partialTermsCount + this.cache.read(currentTerm);
         this.cache.store(number, totalTerms);
-        return this.constructor._buildChainDetailsType(number, totalTerms);
+        return this.constructor.buildChainDetailsType(number, totalTerms);
     }
     /**
      * Returns calculated value for current iteraction.
@@ -105,10 +126,10 @@ class CollatzConjecture {
      * Builds ChainDetail typed object.
      * @param {number} [number]
      * @param {number} [terms]
-     * @private
+     * @package
      * @see ChainDetail
      */
-    static _buildChainDetailsType(number, terms) {
+    static buildChainDetailsType(number, terms) {
         return {
             number: (number ? number : 0),
             terms: (terms ? terms : 0)
@@ -120,17 +141,17 @@ class CollatzConjecture {
      * @param {ChainDetail} a 
      * @param {ChainDetail} b 
      */
-    static pickLongestChain(a, b){
+    static pickLongestChain(a, b) {
         return a.terms > b.terms ? a : b;
     }
 }
 /**
  * Runs synchronous determination in main thread.
  */
-class CollatzSync extends CollatzConjecture {
+class CollatzSync extends CollatzDynProg {
     async determineLongestChain(ceilingToInvestigate) {
         this.cache = new CacheBuilder().build(ceilingToInvestigate);
-        let longestChain = this.constructor._buildChainDetailsType();
+        let longestChain = this.constructor.buildChainDetailsType();
         for (let i = 2; i <= ceilingToInvestigate; ++i) {
             let chainDetails = this.calculateChainLength(i);
             longestChain = this.constructor.pickLongestChain(longestChain, chainDetails);
@@ -147,11 +168,11 @@ class CollatzSync extends CollatzConjecture {
  * | 1                   | 2 | 4 | 6 | ... |
  * | 2                   | 3 | 5 | 7 | ... |
  */
-class CollatzAsync extends CollatzConjecture {
+class CollatzAsync extends CollatzDynProg {
     async determineLongestChain(ceilingToInvestigate) {
         let numOfWorkers = 5;
         let numOfWorkersCompleted = 0;
-        let longestChain = this.constructor._buildChainDetailsType();
+        let longestChain = this.constructor.buildChainDetailsType();
         let sharedBuffer = new SharedArrayBuffer((ceilingToInvestigate + 1) * Int32Array.BYTES_PER_ELEMENT);
         let workerPool = Array.from({ length: numOfWorkers }, () => new Worker('./collatz_worker.js'));
         let signalAllWorkersCompleted;
@@ -182,14 +203,14 @@ class CollatzAsync extends CollatzConjecture {
  * Worker implementation for Asynchronous Collatz.
  * It does a simple task to find the longest chain for a bunch of numbers.
  */
-export class CollatzWorker {
+export class CollatzAsyncWorker {
     /**
      * 
      * @param {external:SharedArrayBuffer} sharedBuffer - Shared buffer among the Worker threads.
      */
     constructor(sharedBuffer) {
         let cache = new CacheBuilder().async().sharedBuffer(sharedBuffer).build();
-        this.collatz = CollatzFactory.create({async:true, cache: cache});
+        this.collatz = CollatzFactory.create({ type: "async", cache: cache });
     }
     /**
      * Map-reduce task to find the longest chain among the numbers.
@@ -198,6 +219,26 @@ export class CollatzWorker {
      */
     reduceToLongestChain(numbers) {
         return numbers.map(number => this.collatz.calculateChainLength(number))
-                      .reduce(CollatzConjecture.pickLongestChain);
+            .reduce(CollatzDynProg.pickLongestChain);
+    }
+}
+
+/**
+ * Functional programming variant for Collatz Conjecture.
+ * Uses {@link https://ramdajs.com/ Ramda}.
+ * @implements {CollatzConjecture}
+ */
+class CollatzFunctional {
+    async determineLongestChain(ceilingToInvestigate) {
+        const isEven = n => (n % 2 === 0);
+        const nextTerm = n => isEven(n) ? n/2 : 3*n+1;
+        const collatzTerms = i => R.append(1, R.unfold(term => (term === 1 ? false : [term, nextTerm(term)]), i));
+        const collatzTermsCount = i => [i, collatzTerms(i).length];
+        const largestChain = (calculated, b) => {
+            let resolvedB = collatzTermsCount(b);
+            return calculated[1] > resolvedB[1] ? calculated : resolvedB;
+        }
+        const result = R.reduce(largestChain, [1,1], R.range(1, ceilingToInvestigate+1));
+        return CollatzDynProg.buildChainDetailsType(result[0], result[1]);
     }
 }

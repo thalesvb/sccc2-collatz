@@ -3,13 +3,19 @@ SAP Community Coding Challenge #2: Collatz Conjecture
 
 This is a submission to [SAP Community Coding Challenge #2][community_challenge].
 
-There are two implementations provided:
+There are three implementations provided:
 
 Synchronous
 ---
 
 Plain good ol' single thread implementation.
 This is the faster, memory friendly.
+
+Functional
+---
+A more functional syntax approaching.
+It is more declarative, breaking the problem into small parts to be solved.
+First attempt with Ramda, so there are things that could be better.
 
 Asynchronous
 ---
@@ -43,6 +49,11 @@ npm start
 Asynchronous:
 ```Shell
 npm start -- async
+```
+
+Functional:
+```Shell
+npm start -- functional
 ```
 
 Observations
