@@ -39,6 +39,13 @@ From first to last interaction, it had a improvement of:
 But is still 3x slower and way more memory intensive than Synchronous code.
 There is margin to squeeze more, but is enough for now.
 
+WebAssembly (Experimental)
+---
+
+Because why not? Actually compiled from C code.
+It is a simple code, eventually you'll find overflow erros (wrong answers when checking above 1000000)
+You need to compile collatz.c to collatz.wasm first before using this run type.
+
 How to run
 ---
 
@@ -54,6 +61,11 @@ npm start -- async
 Functional:
 ```Shell
 npm start -- functional
+```
+
+WebAssembly:
+```Shell
+npm start -- wasm
 ```
 
 Observations

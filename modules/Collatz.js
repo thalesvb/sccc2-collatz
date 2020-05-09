@@ -7,6 +7,7 @@
 import { Worker } from 'worker_threads';
 import R from 'ramda';
 import { CacheBuilder } from './Cache.js';
+import { CollatzWasm } from './wasm/CollatzWasm.js';
 
 /**
  * @typedef {Object} ChainDetail Details from a chain calculation.
@@ -14,6 +15,20 @@ import { CacheBuilder } from './Cache.js';
  * @property {number} terms - Number of terms calculated for this number.
  * @public
  */
+
+/**
+ * Builds ChainDetail typed object.
+ * @param {number} [number]
+ * @param {number} [terms]
+ * @package
+ * @see ChainDetail
+ */
+export function buildChainDetailsType(number, terms) {
+    return {
+        number: (number ? number : 0),
+        terms: (terms ? terms : 0)
+    };
+}
 
 /**
  * Collatz Conjecture implementation factory.
@@ -29,6 +44,7 @@ export class CollatzFactory {
             switch (options.type) {
                 case "async": return new CollatzAsync(options);
                 case "functional": return new CollatzFunctional(options);
+                case "wasm": return new CollatzWasm(options);
             }
         }
         return new CollatzSync(options);
@@ -98,7 +114,7 @@ class CollatzDynProg {
         }
         let totalTerms = partialTermsCount + this.cache.read(currentTerm);
         this.cache.store(number, totalTerms);
-        return this.constructor.buildChainDetailsType(number, totalTerms);
+        return buildChainDetailsType(number, totalTerms);
     }
     /**
      * Returns calculated value for current iteraction.
@@ -123,20 +139,6 @@ class CollatzDynProg {
     }
 
     /**
-     * Builds ChainDetail typed object.
-     * @param {number} [number]
-     * @param {number} [terms]
-     * @package
-     * @see ChainDetail
-     */
-    static buildChainDetailsType(number, terms) {
-        return {
-            number: (number ? number : 0),
-            terms: (terms ? terms : 0)
-        };
-    }
-
-    /**
      * Comparator to determine which one has longest term chain, returning it.
      * @param {ChainDetail} a 
      * @param {ChainDetail} b 
@@ -151,7 +153,7 @@ class CollatzDynProg {
 class CollatzSync extends CollatzDynProg {
     async determineLongestChain(ceilingToInvestigate) {
         this.cache = new CacheBuilder().build(ceilingToInvestigate);
-        let longestChain = this.constructor.buildChainDetailsType();
+        let longestChain = buildChainDetailsType();
         for (let i = 2; i <= ceilingToInvestigate; ++i) {
             let chainDetails = this.calculateChainLength(i);
             longestChain = this.constructor.pickLongestChain(longestChain, chainDetails);
@@ -172,7 +174,7 @@ class CollatzAsync extends CollatzDynProg {
     async determineLongestChain(ceilingToInvestigate) {
         let numOfWorkers = 5;
         let numOfWorkersCompleted = 0;
-        let longestChain = this.constructor.buildChainDetailsType();
+        let longestChain = buildChainDetailsType();
         let sharedBuffer = new SharedArrayBuffer((ceilingToInvestigate + 1) * Int32Array.BYTES_PER_ELEMENT);
         let workerPool = Array.from({ length: numOfWorkers }, () => new Worker('./collatz_worker.js'));
         let signalAllWorkersCompleted;
@@ -239,6 +241,6 @@ class CollatzFunctional {
             return calculated[1] > resolvedB[1] ? calculated : resolvedB;
         }
         const result = R.reduce(largestChain, [1,1], R.range(1, ceilingToInvestigate+1));
-        return CollatzDynProg.buildChainDetailsType(result[0], result[1]);
+        return buildChainDetailsType(result[0], result[1]);
     }
 }
