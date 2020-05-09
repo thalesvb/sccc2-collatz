@@ -55,17 +55,22 @@ npm start
 ```
 Asynchronous:
 ```Shell
-npm start -- async
+npm start -- -r async
 ```
 
 Functional:
 ```Shell
-npm start -- functional
+npm start -- -r functional
 ```
 
 WebAssembly:
 ```Shell
-npm start -- wasm
+npm start -- -r wasm
+```
+
+Change upper limit to investigate
+```Shell
+npm start -- -l <upperLimit>
 ```
 
 Observations
