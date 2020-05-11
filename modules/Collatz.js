@@ -36,7 +36,7 @@ export function buildChainDetailsType(number, terms) {
 export class CollatzFactory {
     /**
      * @param {Object} [options] - Options to create instance.
-     * @param {string} [options.type] - Way to solve (sync/async/functional). Defaults to sync.
+     * @param {string} [options.type] - Way to solve (sync/async/functional/wasm). Defaults to sync.
      * @param {Cache} [options.cache] - Pre-built cache.
      */
     static create(options) {
@@ -149,6 +149,7 @@ class CollatzDynProg {
 }
 /**
  * Runs synchronous determination in main thread.
+ * @extends CollatzDynProg
  */
 class CollatzSync extends CollatzDynProg {
     async determineLongestChain(ceilingToInvestigate) {
@@ -169,6 +170,7 @@ class CollatzSync extends CollatzDynProg {
  * | ---                 | - | - | - | -   |
  * | 1                   | 2 | 4 | 6 | ... |
  * | 2                   | 3 | 5 | 7 | ... |
+ * @extends CollatzDynProg
  */
 class CollatzAsync extends CollatzDynProg {
     async determineLongestChain(ceilingToInvestigate) {
@@ -208,7 +210,7 @@ class CollatzAsync extends CollatzDynProg {
 export class CollatzAsyncWorker {
     /**
      * 
-     * @param {external:SharedArrayBuffer} sharedBuffer - Shared buffer among the Worker threads.
+     * @param {external:SharedArrayBuffer} sharedBuffer - Shared buffer across the Workers.
      */
     constructor(sharedBuffer) {
         let cache = new CacheBuilder().async().sharedBuffer(sharedBuffer).build();

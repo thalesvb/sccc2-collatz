@@ -4,12 +4,9 @@ import { buildChainDetailsType } from './../Collatz.js';
  * WebAssembly (from C code) implementation.
  * Node have experimental support for direct wasm import but
  * online runners not always allows experimental features.
- * It won't work for cha
+ * @implements {CollatzConjecture}
  */
 export class CollatzWasm {
-    /**
-     * @implements {CollatzConjecture}
-     */
     static memoryStates = new WeakMap();
     constructor() {
         this.wasmDetermine = null;

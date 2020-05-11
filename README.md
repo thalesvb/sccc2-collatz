@@ -3,7 +3,7 @@ SAP Community Coding Challenge #2: Collatz Conjecture
 
 This is a submission to [SAP Community Coding Challenge #2][community_challenge].
 
-There are three implementations provided:
+There are four implementations provided:
 
 Synchronous
 ---
