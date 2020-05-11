@@ -238,11 +238,12 @@ class CollatzFunctional {
         const nextTerm = n => isEven(n) ? n/2 : 3*n+1;
         const collatzTerms = i => R.append(1, R.unfold(term => (term === 1 ? false : [term, nextTerm(term)]), i));
         const collatzTermsCount = i => [i, collatzTerms(i).length];
-        const largestChain = (calculated, b) => {
-            let resolvedB = collatzTermsCount(b);
-            return calculated[1] > resolvedB[1] ? calculated : resolvedB;
-        }
-        const result = R.reduce(largestChain, [1,1], R.range(1, ceilingToInvestigate+1));
+        const largestChain = (currentLargest, startingNumber) => {
+            let chainCounted = collatzTermsCount(startingNumber);
+            return currentLargest[1] > chainCounted[1] ? currentLargest : chainCounted;
+        };
+        const detLongestChain = upperLimit => R.reduce(largestChain, [1,1], R.range(1, upperLimit+1));
+        const result = detLongestChain(ceilingToInvestigate);
         return buildChainDetailsType(result[0], result[1]);
     }
 }
