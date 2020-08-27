@@ -4,6 +4,16 @@ import { buildChainDetailsType } from './../Collatz.js';
  * WebAssembly (from C code) implementation.
  * Node have experimental support for direct wasm import but
  * online runners not always allows experimental features.
+ * 
+ * WebAssembly (WASM) files are also called as modules because they behave like a JS module:
+ *  - You have exported features (macro WASM_EXPORT on this C code)
+ *  - You need to load module before using (import/require like, but on vanilla JS is called instantiation)
+ *
+ * But you have a missing gap because if your code does system calls (syscalls) not provided by WASM compiler, you have
+ * to implement/provide the missing ones (here is the {@link CollatzWasm#syscall syscall method} doing it)
+ * and bake it on instantiation call (env object).
+ * As C code used pointer to return data, it was required to read results from "module heap memory" and make it JS friendly to use outside this class.
+ * 
  * @implements {CollatzConjecture}
  */
 export class CollatzWasm {
@@ -38,6 +48,7 @@ export class CollatzWasm {
                 }
             })).then(results => {
                 instance = results.instance;
+                // Bind a JS function to wrap WASM function call and unwrap data to a JS friendly type.
                 this.wasmDetermine = function (number) {
                     const memPointer = instance.exports.determineLongestChain(number);
                     const memBuffer = instance.exports.memory.buffer.slice(memPointer);

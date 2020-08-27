@@ -10,6 +10,11 @@
 
 unsigned int collatzChainLength(unsigned int number);
 unsigned int nextTerm(unsigned int term);
+/**
+ * Determine the longest chain for a range of numbers between 0 < i < upperBound.
+ * @param upperBound
+ * @return Array containing the number with the longest chain and number of terms in that chain.
+ */
 unsigned int* determineLongestChain(unsigned int upperBound);
 
 int main(int argc, char** argv) {
@@ -54,7 +59,6 @@ WASM_EXPORT
 unsigned int nextTerm(unsigned int term) {
     if(term%2) {
         return 3 * term + 1;
-    } else {
-        return term / 2;
     }
+    return term / 2;
 }

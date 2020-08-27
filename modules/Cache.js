@@ -115,6 +115,13 @@ class CacheSync {
 
 /**
  * Asynchronous cache for Asynchronous Collatz.
+ * 
+ * Workers shares the same ArrayBuffer (memory space) to read and store chain lengths.
+ * Dynamic Programming paradigm relies on reuse data already calculated to reduce working time, but due parallelism
+ * that calculation may be still running in another worker.
+ * Atomics wait/notify methods are a way to wait workers finish calculation and feed results into shared array,
+ * and only then continue process on stalled ones. It is still a experimental feature.
+ * 
  * @implements {Cache}
  */
 class CacheAsync {
